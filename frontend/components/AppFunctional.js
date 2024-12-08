@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 
 // Suggested initial states
 const initialMessage = ''
@@ -7,15 +7,16 @@ const initialSteps = 0
 const initialIndex = 4 // the index the "B" is at
 
 export default function AppFunctional(props) {
-  const [email, setEmail] = useState(initialEmail);
-  const [steps, setSteps] = useState(initialSteps);
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [message, setMessage] = useState(initialMessage);
+  const [message, setMessage] = React.useState(initialMessage);
+  const [email, setEmail] = React.useState(initialEmail);
+  const [steps, setSteps] = React.useState(initialSteps);
+  const [index, setIndex] = React.useState(initialIndex);
 
   function getXY() {
-    const x = (currentIndex % 3) + 1; // Calculate x coordinate
-    const y = Math.floor(currentIndex / 3) + 1; // Calculate y coordinate
-    return { x, y };
+    return {
+      x: (index % 3) + 1,
+      y: Math.floor(index / 3) + 1,
+    };
   }
 
   function getXYMessage() {
@@ -24,52 +25,49 @@ export default function AppFunctional(props) {
   }
 
   function reset() {
-    setEmail(initialEmail);
-    setSteps(initialSteps);
-    setCurrentIndex(initialIndex);
-    setMessage(initialMessage);
+    setMessage('');
+    setEmail('');
+    setSteps(0);
+    setIndex(initialIndex);
   }
 
   function getNextIndex(direction) {
-    const gridSize = 3; // 3x3 grid
-    let newIndex = currentIndex;
-
-    switch (direction) {
-      case 'left':
-        if (currentIndex % gridSize > 0) newIndex -= 1;
-        break;
-      case 'up':
-        if (currentIndex >= gridSize) newIndex -= gridSize;
-        break;
-      case 'right':
-        if (currentIndex % gridSize < gridSize - 1) newIndex += 1;
-        break;
-      case 'down':
-        if (currentIndex < gridSize * (gridSize - 1)) newIndex += gridSize;
-        break;
-      default:
-        break;
-    }
-
-    return newIndex;
+    const nextIndex = {
+      left: (index % 3 === 0) ? -1 : index - 1, // Can't go left if in the first column
+      up: index > 2 ? index - 3 : -1,
+      right: (index % 3 === 2) ? -1 : index + 1, // Can't go right if in the last column
+      down: index < 6 ? index + 3 : -1,
+    };
+    return nextIndex[direction];
   }
 
   function move(evt) {
-    const direction = evt.target.id; // Get direction from button id
+    const direction = evt.target.id;
     const newIndex = getNextIndex(direction);
-    setCurrentIndex(newIndex);
-    setSteps(steps + 1);
-    setMessage(getXYMessage());
+    if (newIndex === -1) {
+      setMessage(`You can't go ${direction}`);
+    } else {
+      if (newIndex !== index) {
+        setIndex(newIndex);
+        setSteps(prevSteps => prevSteps + 1);
+        setMessage('');
+      }
+    }
   }
 
   function onChange(evt) {
-    setEmail(evt.target.value); // Update email state
+    setEmail(evt.target.value);
   }
 
   async function onSubmit(evt) {
-    evt.preventDefault(); // Prevent default form submission
+    evt.preventDefault();
     const { x, y } = getXY();
-    const payload = { x, y, steps, email };
+    const payload = {
+      x: x,
+      y: y,
+      steps: steps,
+      email: email,
+    };
 
     try {
       const response = await fetch('http://localhost:9000/api/result', {
@@ -79,15 +77,11 @@ export default function AppFunctional(props) {
         },
         body: JSON.stringify(payload),
       });
-
-      const result = await response.json();
-      if (response.ok) {
-        setMessage(result.message); // Display success message
-      } else {
-        setMessage(result.error); // Display error message
-      }
+      const data = await response.json();
+      setMessage(data.message || 'Success!');
+      setEmail(''); // Clear email input after submission
     } catch (error) {
-      setMessage('An error occurred.'); // Handle fetch error
+      setMessage('Error submitting the form.');
     }
   }
 
@@ -95,13 +89,13 @@ export default function AppFunctional(props) {
     <div id="wrapper" className={props.className}>
       <div className="info">
         <h3 id="coordinates">{getXYMessage()}</h3>
-        <h3 id="steps">You moved {steps} times</h3>
+        <h3 id="steps">You moved {steps} {steps === 1 ? 'time' : 'times'}</h3>
       </div>
       <div id="grid">
         {
           [0, 1, 2, 3, 4, 5, 6, 7, 8].map(idx => (
-            <div key={idx} className={`square${idx === currentIndex ? ' active' : ''}`}>
-              {idx === currentIndex ? 'B' : null}
+            <div key={idx} className={`square${idx === index ? ' active' : ''}`}>
+              {idx === index ? 'B' : ''}
             </div>
           ))
         }
